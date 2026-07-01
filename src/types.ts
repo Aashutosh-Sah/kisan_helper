@@ -36,11 +36,13 @@ export interface ChatMessage {
 }
 
 export interface DiagnosisResult {
+  doctorMessage: string;
   diagnosis: string;
   remedy: string;
   preventiveMeasures: string;
   isEmergency: boolean;
   nepaliTranslation: {
+    doctorMessage: string;
     diagnosis: string;
     remedy: string;
   };

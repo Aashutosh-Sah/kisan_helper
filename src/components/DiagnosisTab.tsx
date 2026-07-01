@@ -104,21 +104,25 @@ export default function DiagnosisTab() {
           throw new Error("Backend API failed and VITE_GROQ_API_KEY is not configured for client fallback. Please check deployment settings.");
         }
         
-        const prompt = `You are an expert agricultural scientist and veterinary doctor specializing in Nepali farming systems.
-Analyze the following user-submitted agricultural / animal issue:
-Type: ${type}
+        const prompt = `You are a highly empathetic, expert agricultural scientist and veterinary doctor from Nepal.
+A farmer is coming to you for help with their ${type === 'crop' ? 'crops' : 'livestock'}.
+Talk to them directly like a caring, real human doctor giving personal advice, using an interactive and compassionate tone.
+
+Analyze the following user-submitted issue:
 Subject/Species/Crop: ${subject}
 Issue Description: ${description}
 
 Provide a structured diagnosis JSON response matching this exact schema:
 {
-  "diagnosis": "Scientific and layman name of the disease/pest/condition in English",
-  "remedy": "Detailed step-by-step treatment or organic/chemical remedy suitable for Nepali farmers (available local resources)",
-  "preventiveMeasures": "How to prevent this in the future (soil management, hygiene, vaccines, etc.)",
-  "isEmergency": true,
+  "doctorMessage": "A warm, personal, and empathetic message speaking directly to the farmer. Sound like a real doctor (e.g., 'Hello there! I see you are worried about your... don't worry, let's take a look at what we can do.')",
+  "diagnosis": "Clear, simple name of the disease/pest/condition in English",
+  "remedy": "Detailed step-by-step treatment or organic/chemical remedy suitable for Nepali farmers (available local resources), written as friendly instructions",
+  "preventiveMeasures": "How to prevent this in the future, given as caring advice",
+  "isEmergency": true/false,
   "nepaliTranslation": {
+    "doctorMessage": "The same warm, empathetic greeting and reassurance translated naturally into conversational Nepali (Devanagari script)",
     "diagnosis": "Name of the diagnosis in Nepali (Devanagari script)",
-    "remedy": "Key treatment steps translated into clear, simple Nepali language for farmers"
+    "remedy": "The friendly treatment steps translated into clear, simple Nepali language"
   }
 }
 Return ONLY valid JSON.`;
@@ -143,7 +147,7 @@ Return ONLY valid JSON.`;
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            model: imageBase64 ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+            model: imageBase64 ? "llama-3.2-90b-vision-preview" : "llama-3.3-70b-versatile",
             messages: messages,
             temperature: 0.5,
             response_format: { type: "json_object" }
@@ -366,6 +370,19 @@ Return ONLY valid JSON.`;
                   <h4 className="font-sans font-bold text-xl text-slate-900 mt-1">{result.diagnosis}</h4>
                   <p className="text-xs font-semibold text-slate-500 font-mono mt-0.5">Translation: {result.nepaliTranslation.diagnosis}</p>
                 </div>
+
+                {/* Doctor's Message */}
+                {(result.doctorMessage || result.nepaliTranslation?.doctorMessage) && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+                    <Stethoscope className="w-5 h-5 text-green-700 shrink-0 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-green-900 leading-relaxed italic">"{result.doctorMessage}"</p>
+                      {result.nepaliTranslation?.doctorMessage && (
+                        <p className="text-xs font-medium text-green-800 leading-relaxed border-t border-green-200/50 pt-2">"{result.nepaliTranslation.doctorMessage}"</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100/50">

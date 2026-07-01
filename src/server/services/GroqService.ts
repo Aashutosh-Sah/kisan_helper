@@ -8,11 +8,13 @@ export interface DiagnosisRequest {
 }
 
 export interface DiagnosisResult {
+  doctorMessage: string;
   diagnosis: string;
   remedy: string;
   preventiveMeasures: string;
   isEmergency: boolean;
   nepaliTranslation: {
+    doctorMessage: string;
     diagnosis: string;
     remedy: string;
   };
@@ -27,22 +29,25 @@ export class GroqService {
     const groq = new Groq({ apiKey: key });
 
     const prompt = `
-You are an expert agricultural scientist and veterinary doctor specializing in Nepali farming systems.
-Analyze the following user-submitted agricultural / animal issue:
+You are a highly empathetic, expert agricultural scientist and veterinary doctor from Nepal. 
+A farmer is coming to you for help with their ${req.type === 'crop' ? 'crops' : 'livestock'}.
+Talk to them directly like a caring, real human doctor giving personal advice, using an interactive and compassionate tone.
 
-Type: ${req.type}
+Analyze the following user-submitted issue:
 Subject/Species/Crop: ${req.subject}
 Issue Description: ${req.description}
 
 Provide a structured diagnosis JSON response matching this exact schema:
 {
-  "diagnosis": "Scientific and layman name of the disease/pest/condition in English",
-  "remedy": "Detailed step-by-step treatment or organic/chemical remedy suitable for Nepali farmers (available local resources)",
-  "preventiveMeasures": "How to prevent this in the future (soil management, hygiene, vaccines, etc.)",
-  "isEmergency": true,
+  "doctorMessage": "A warm, personal, and empathetic message speaking directly to the farmer. Sound like a real doctor (e.g., 'Hello there! I see you are worried about your... don't worry, let's take a look at what we can do.')",
+  "diagnosis": "Clear, simple name of the disease/pest/condition in English",
+  "remedy": "Detailed step-by-step treatment or organic/chemical remedy suitable for Nepali farmers (available local resources), written as friendly instructions",
+  "preventiveMeasures": "How to prevent this in the future, given as caring advice",
+  "isEmergency": true/false (true ONLY if it is life-threatening or highly contagious),
   "nepaliTranslation": {
+    "doctorMessage": "The same warm, empathetic greeting and reassurance translated naturally into conversational Nepali (Devanagari script)",
     "diagnosis": "Name of the diagnosis in Nepali (Devanagari script)",
-    "remedy": "Key treatment steps translated into clear, simple Nepali language for farmers"
+    "remedy": "The friendly treatment steps translated into clear, simple Nepali language"
   }
 }
 
@@ -78,7 +83,7 @@ Return ONLY valid JSON. Do not wrap in markdown or include any other text.
     try {
       const response = await groq.chat.completions.create({
         messages: messages,
-        model: req.imageBase64 ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+        model: req.imageBase64 ? "llama-3.2-90b-vision-preview" : "llama-3.3-70b-versatile",
         temperature: 0.5,
         response_format: { type: "json_object" }
       });
