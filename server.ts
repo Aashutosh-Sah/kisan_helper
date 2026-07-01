@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import helmet from "helmet";
 import { Server } from "socket.io";
 import path from "path";
 import fs from "fs";
@@ -34,6 +35,12 @@ async function startServer() {
 
   app.set("trust proxy", 1); // Trust first proxy (required for Cloud Run / reverse proxies)
 
+  // Helmet helps secure Express apps by setting various HTTP headers
+  app.use(helmet({
+    contentSecurityPolicy: false, // CSP is often handled in Vite / HTML, disable to prevent breaking HMR/Vite
+    crossOriginEmbedderPolicy: false // Allow loading external resources if needed
+  }));
+
   // 1. Strict CORS Middleware
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -52,8 +59,8 @@ async function startServer() {
   });
 
   // 2. Parsers & Global Sanitizers (OWASP Injection Protection)
-  app.use(express.json({ limit: "2mb" })); // Mitigate Denial of Service
-  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+  app.use(express.json({ limit: "10mb" })); // Mitigate Denial of Service
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.use(sanitizeInput); // Strict XSS/NoSQL Sanitation
   app.use(globalLimiter); // Protect entire platform from brute-force/DoS
 

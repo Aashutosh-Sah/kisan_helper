@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, doc, setDoc } from "firebase/firestore";
 import { Leaf, Award, ShieldAlert, History, Sparkles, CheckCircle2, Stethoscope, AlertTriangle, Camera, X } from "lucide-react";
 import { DiagnosisResult, DiagnosisRecord } from "../types";
 
@@ -81,14 +81,21 @@ export default function DiagnosisTab() {
         body: JSON.stringify({ type, subject, description, imageBase64 }),
       });
 
-      const data = await res.json();
+      let data;
+      const responseText = await res.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse response:", responseText);
+        throw new Error(`Server error: ${responseText.slice(0, 100)}`);
+      }
+
       if (!res.ok) throw new Error(data.error || "Failed to contact Agri-Vet AI.");
 
       setResult(data.result);
       
       // Save diagnosis log to Firestore on the client side
       try {
-        const { doc, setDoc } = await import("firebase/firestore");
         const diagnosisId = crypto.randomUUID();
         const userName = user.displayName || "Farmer";
         const logPayload = {

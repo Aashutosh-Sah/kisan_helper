@@ -40,14 +40,18 @@ export default function ChatTab({ activeChatId, onSelectChat, userProfile }: Cha
       const isDoctor = userProfile?.role === "doctor";
       const q = query(
         collection(db, "chats"),
-        where(isDoctor ? "doctorId" : "farmerId", "==", user.uid),
-        orderBy("lastMessageAt", "desc")
+        where(isDoctor ? "doctorId" : "farmerId", "==", user.uid)
       );
 
       const snap = await getDocs(q);
       const list: ChatRoom[] = [];
       snap.forEach((doc) => {
         list.push(doc.data() as ChatRoom);
+      });
+      list.sort((a, b) => {
+        const timeA = new Date(a.lastMessageAt || a.createdAt).getTime();
+        const timeB = new Date(b.lastMessageAt || b.createdAt).getTime();
+        return timeB - timeA;
       });
       setRooms(list);
     } catch (err: any) {

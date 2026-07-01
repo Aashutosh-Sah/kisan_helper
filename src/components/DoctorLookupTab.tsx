@@ -130,7 +130,8 @@ export default function DoctorLookupTab({ onStartChat, userProfile }: DoctorLook
           doctorId: doctorUid,
           farmerName: farmerName,
           doctorName: doctorName,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          lastMessageAt: new Date().toISOString()
         });
       }
 
