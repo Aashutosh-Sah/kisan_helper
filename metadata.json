@@ -1,0 +1,6 @@
+{
+  "name": "Nepal Agri-Vet Secure Hub",
+  "description": "Secure, enterprise-grade Agri-Vet service platform for Nepali farmers, providing verified veterinary consultations, localized mapping, and real-time AI crop/animal diagnosis.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

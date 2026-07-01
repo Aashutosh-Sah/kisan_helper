@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile for Farmer or Doctor",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique user ID" },
+        "email": { "type": "string", "description": "User email address" },
+        "name": { "type": "string", "description": "User display name" },
+        "role": { "type": "string", "enum": ["farmer", "doctor", "admin"], "description": "User role" },
+        "isApproved": { "type": "boolean", "description": "Whether the doctor is approved by admin" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "specialization": { "type": "string", "description": "Doctor's specialization area" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          },
+          "required": ["lat", "lng"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "name", "role", "isApproved", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A chat room between a Farmer and a Doctor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "farmerId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "farmerName": { "type": "string" },
+        "doctorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "farmerId", "doctorId", "farmerName", "doctorName", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message within a chat room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "chatId", "senderId", "senderName", "text", "timestamp"]
+    },
+    "Diagnosis": {
+      "title": "Diagnosis",
+      "description": "AI-driven plant or animal diagnostic record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "type": { "type": "string", "enum": ["crop", "animal"] },
+        "subject": { "type": "string" },
+        "description": { "type": "string" },
+        "result": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "type", "subject", "description", "result", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": "Profile",
+      "description": "Collection of user profiles"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Collection of chat sessions between farmers and doctors"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Sub-collection of messages within a chat"
+    },
+    "/diagnoses/{diagnosisId}": {
+      "schema": "Diagnosis",
+      "description": "Collection of plant/animal diagnostic records"
+    }
+  }
+}

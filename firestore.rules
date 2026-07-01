@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // --- REUSABLE SECURITY PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'aashutoshsah0.1.1@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- PROFILE RULES ---
+    match /profiles/{userId} {
+      allow read: if isSignedIn(); // All signed-in users can browse profiles for networking/contacting
+      
+      allow create: if isSignedIn() && request.auth.uid == userId;
+
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+
+      allow delete: if isAdmin();
+    }
+
+    // --- CHAT RULES ---
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && (
+        resource.data.farmerId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() && (
+        request.resource.data.farmerId == request.auth.uid || 
+        request.resource.data.doctorId == request.auth.uid
+      ) 
+      && isValidId(chatId)
+      && request.resource.data.id == chatId
+      && request.resource.data.farmerId is string && request.resource.data.farmerId.size() <= 128
+      && request.resource.data.doctorId is string && request.resource.data.doctorId.size() <= 128
+      && request.resource.data.farmerName is string && request.resource.data.farmerName.size() <= 128
+      && request.resource.data.doctorName is string && request.resource.data.doctorName.size() <= 128;
+
+      allow update: if isSignedIn() && (
+        resource.data.farmerId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      )
+      && request.resource.data.farmerId == existing().farmerId
+      && request.resource.data.doctorId == existing().doctorId;
+
+      allow delete: if isAdmin();
+
+      // --- MESSAGES SUB-COLLECTION (Master Gate Protection) ---
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/chats/$(chatId)).data.farmerId == request.auth.uid ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.doctorId == request.auth.uid ||
+          isAdmin()
+        );
+
+        allow create: if isSignedIn() && (
+          get(/databases/$(database)/documents/chats/$(chatId)).data.farmerId == request.auth.uid ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.doctorId == request.auth.uid
+        )
+        && isValidId(messageId)
+        && request.resource.data.id == messageId
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() <= 2048;
+
+        allow update, delete: if false; // Message history is auditing trail
+      }
+    }
+
+    // --- DIAGNOSIS RULES ---
+    match /diagnoses/{diagnosisId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() 
+        && request.resource.data.userId == request.auth.uid
+        && isValidId(diagnosisId)
+        && request.resource.data.id == diagnosisId
+        && request.resource.data.type in ['crop', 'animal']
+        && request.resource.data.subject is string && request.resource.data.subject.size() <= 256
+        && request.resource.data.description is string && request.resource.data.description.size() <= 2048
+        && request.resource.data.result is string && request.resource.data.result.size() <= 12000;
+
+      allow update: if false; // Immutable diagnosis records for auditing
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+  }
+}
