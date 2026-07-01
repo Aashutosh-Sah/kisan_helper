@@ -73,8 +73,7 @@ export default function DoctorLookupTab({ onStartChat, userProfile }: DoctorLook
     try {
       const q = query(
         collection(db, "profiles"),
-        where("role", "==", "doctor"),
-        where("isApproved", "==", true)
+        where("role", "==", "doctor")
       );
       
       const snapshot = await getDocs(q);
@@ -82,7 +81,8 @@ export default function DoctorLookupTab({ onStartChat, userProfile }: DoctorLook
       
       snapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.location && typeof data.location.lat === "number" && typeof data.location.lng === "number") {
+        // Client-side filtering to avoid composite index requirement
+        if (data.isApproved === true && data.location && typeof data.location.lat === "number" && typeof data.location.lng === "number") {
           const distance = calculateDistance(activeLoc.lat, activeLoc.lng, data.location.lat, data.location.lng);
           docsArr.push({
             uid: data.uid || doc.id,

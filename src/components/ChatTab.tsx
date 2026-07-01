@@ -62,106 +62,81 @@ export default function ChatTab({ activeChatId, onSelectChat, userProfile }: Cha
     }
   };
 
-  // 2. Setup Socket.io Client Connection
-  useEffect(() => {
-    // Connect to the Express server running on the same host (port 3000)
-    const socket = io();
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.log("Connected to secure socket messenger:", socket.id);
-    });
-
-    // Real-time listener for new messages relayed from Socket.io server
-    socket.on("new_message", (msg: ChatMessage) => {
-      if (msg.chatId === activeChatId) {
-        setMessages((prev) => {
-          // Prevent duplicates
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-        setTimeout(scrollToBottom, 50);
-      }
-    });
-
-    socket.on("disconnect", () => {
-      console.warn("Socket messenger disconnected.");
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [activeChatId]);
-
-  // 3. Load message history and join room when activeChatId changes
+  // 2. Load message history and listen to real-time updates via Firestore
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
       return;
     }
 
-    const loadHistoryAndJoin = async () => {
-      setLoadingMessages(true);
-      setError("");
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
+    setLoadingMessages(true);
+    setError("");
 
-        // Fetch historical message log from Firestore directly
-        const q = query(
-          collection(db, "chats", activeChatId, "messages"),
-          orderBy("timestamp", "asc")
-        );
+    const q = query(
+      collection(db, "chats", activeChatId, "messages"),
+      orderBy("timestamp", "asc")
+    );
 
-        const snap = await getDocs(q);
-        const list: ChatMessage[] = [];
-        snap.forEach((doc) => {
-          list.push(doc.data() as ChatMessage);
-        });
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: ChatMessage[] = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data() as ChatMessage);
+      });
+      setMessages(list);
+      setLoadingMessages(false);
+      setTimeout(scrollToBottom, 50);
+    }, (err) => {
+      console.error("Failed to load message log:", err);
+      setError("Missing or insufficient permissions. Could not load message history.");
+      setLoadingMessages(false);
+    });
 
-        setMessages(list);
-        setTimeout(scrollToBottom, 50);
-
-        // Instruct Socket server to join the room
-        if (socketRef.current) {
-          socketRef.current.emit("join_room", activeChatId);
-        }
-      } catch (err: any) {
-        console.error("Failed to load message log:", err);
-        setError("Missing or insufficient permissions. Could not load message history.");
-      } finally {
-        setLoadingMessages(false);
-      }
-    };
-
-    loadHistoryAndJoin();
-    fetchRooms();
-  }, [activeChatId, userProfile]);
+    return () => unsubscribe();
+  }, [activeChatId]);
 
   // Initial rooms fetch
   useEffect(() => {
     fetchRooms();
   }, [userProfile]);
 
-  // 4. Send Message Handler
-  const handleSendMessage = (e: React.FormEvent) => {
+  // 3. Send Message Handler directly to Firestore
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim() || !activeChatId || !socketRef.current) return;
+    if (!text.trim() || !activeChatId) return;
 
     const user = auth.currentUser;
     if (!user) return;
 
     const senderName = userProfile?.name || user.displayName || "User";
-
-    // Emit message to Socket server. Socket will store in Firestore and broadcast to room
-    socketRef.current.emit("send_message", {
-      chatId: activeChatId,
-      senderId: user.uid,
-      senderName,
-      text: text.trim(),
-    });
-
+    const currentText = text.trim();
     setText("");
+
+    try {
+      const { doc, setDoc, updateDoc } = await import("firebase/firestore");
+      const messageId = crypto.randomUUID();
+      const timestamp = new Date().toISOString();
+
+      const msgPayload = {
+        id: messageId,
+        chatId: activeChatId,
+        senderId: user.uid,
+        senderName,
+        text: currentText,
+        timestamp
+      };
+
+      // Store message in Firestore directly
+      await setDoc(doc(db, "chats", activeChatId, "messages", messageId), msgPayload);
+
+      // Update chat parent metadata
+      await updateDoc(doc(db, "chats", activeChatId), {
+        lastMessage: currentText.substring(0, 100),
+        lastMessageAt: timestamp
+      });
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      setError("Failed to send message. Please check permissions.");
+    }
   };
 
   return (

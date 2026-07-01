@@ -54,6 +54,11 @@ export function sanitizeInput(req: Request, res: Response, next: NextFunction): 
       for (const key of Object.keys(obj)) {
         // Guard against Prototype Pollution
         if (key === "__proto__" || key === "constructor") continue;
+        // Skip sanitizing massive base64 images to prevent regex engine freeze/OOM
+        if (key === "imageBase64") {
+          sanitizedObj[key] = obj[key];
+          continue;
+        }
         sanitizedObj[key] = sanitizeValue(obj[key]);
       }
       return sanitizedObj;

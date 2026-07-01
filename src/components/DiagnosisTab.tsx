@@ -71,28 +71,97 @@ export default function DiagnosisTab() {
       const user = auth.currentUser;
       if (!user) throw new Error("Please login to proceed.");
 
-      const token = await user.getIdToken();
-      const res = await fetch("/api/diagnose", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ type, subject, description, imageBase64 }),
-      });
-
-      let data;
-      const responseText = await res.text();
+      let resultData;
+      
       try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse response:", responseText);
-        throw new Error(`Server error: ${responseText.slice(0, 100)}`);
+        const token = await user.getIdToken();
+        const res = await fetch("/api/diagnose", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ type, subject, description, imageBase64 }),
+        });
+
+        const responseText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Failed to parse response:", responseText);
+          throw new Error(`Invalid response from server (likely a static deployment issue).`);
+        }
+
+        if (!res.ok) throw new Error(data.error || "Failed to contact Agri-Vet AI.");
+        resultData = data.result;
+      } catch (backendError) {
+        console.warn("Backend diagnosis failed, attempting client-side fallback...", backendError);
+        
+        // Client-side fallback for static deployments
+        const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+        if (!groqKey) {
+          throw new Error("Backend API failed and VITE_GROQ_API_KEY is not configured for client fallback. Please check deployment settings.");
+        }
+        
+        const prompt = `You are an expert agricultural scientist and veterinary doctor specializing in Nepali farming systems.
+Analyze the following user-submitted agricultural / animal issue:
+Type: ${type}
+Subject/Species/Crop: ${subject}
+Issue Description: ${description}
+
+Provide a structured diagnosis JSON response matching this exact schema:
+{
+  "diagnosis": "Scientific and layman name of the disease/pest/condition in English",
+  "remedy": "Detailed step-by-step treatment or organic/chemical remedy suitable for Nepali farmers (available local resources)",
+  "preventiveMeasures": "How to prevent this in the future (soil management, hygiene, vaccines, etc.)",
+  "isEmergency": true,
+  "nepaliTranslation": {
+    "diagnosis": "Name of the diagnosis in Nepali (Devanagari script)",
+    "remedy": "Key treatment steps translated into clear, simple Nepali language for farmers"
+  }
+}
+Return ONLY valid JSON.`;
+
+        let messages: any[] = [];
+        if (imageBase64) {
+          messages = [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageBase64 } }
+            ]
+          }];
+        } else {
+          messages = [{ role: "user", content: prompt }];
+        }
+
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${groqKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: imageBase64 ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+            messages: messages,
+            temperature: 0.5,
+            response_format: { type: "json_object" }
+          })
+        });
+
+        if (!groqRes.ok) {
+          const errData = await groqRes.json().catch(() => ({}));
+          throw new Error(errData.error?.message || "Client-side Groq fallback failed.");
+        }
+
+        const groqData = await groqRes.json();
+        const content = groqData.choices[0]?.message?.content;
+        if (!content) throw new Error("Empty response from Groq.");
+        resultData = JSON.parse(content);
       }
 
-      if (!res.ok) throw new Error(data.error || "Failed to contact Agri-Vet AI.");
-
-      setResult(data.result);
+      setResult(resultData);
       
       // Save diagnosis log to Firestore on the client side
       try {
