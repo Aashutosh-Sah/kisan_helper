@@ -83,7 +83,7 @@ Return ONLY valid JSON. Do not wrap in markdown or include any other text.
     try {
       const response = await groq.chat.completions.create({
         messages: messages,
-        model: req.imageBase64 ? "llama-3.2-90b-vision-preview" : "llama-3.3-70b-versatile",
+        model: req.imageBase64 ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile",
         temperature: 0.5,
         response_format: { type: "json_object" }
       });

@@ -147,7 +147,7 @@ Return ONLY valid JSON.`;
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            model: imageBase64 ? "llama-3.2-90b-vision-preview" : "llama-3.3-70b-versatile",
+            model: imageBase64 ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile",
             messages: messages,
             temperature: 0.5,
             response_format: { type: "json_object" }
